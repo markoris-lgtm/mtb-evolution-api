@@ -1,0 +1,98 @@
+{
+  "forks": {
+    "rockshox": {
+      "psi_multiplier": 1.0,
+      "rebound_table": [
+        {"max_kg": 63, "clicks": 14},
+        {"max_kg": 72, "clicks": 12},
+        {"max_kg": 81, "clicks": 10},
+        {"max_kg": 90, "clicks": 8},
+        {"max_kg": 99, "clicks": 6},
+        {"max_kg": 999, "clicks": 4}
+      ],
+      "base_lsc": 2,
+      "base_hsc": 1,
+      "note": "RockShox preporučuje sporiji rebound za više pritiske."
+    },
+    "fox": {
+      "psi_multiplier": 1.15,
+      "rebound_table": [
+        {"max_kg": 60, "clicks": 13},
+        {"max_kg": 70, "clicks": 11},
+        {"max_kg": 80, "clicks": 9},
+        {"max_kg": 90, "clicks": 7},
+        {"max_kg": 100, "clicks": 5},
+        {"max_kg": 999, "clicks": 3}
+      ],
+      "base_lsc": 5,
+      "base_hsc": 4,
+      "note": "Fox GRIP2 damper traži precizno podešavanje rebounda."
+    },
+    "marzocchi": {
+      "psi_multiplier": 1.1,
+      "rebound_table": [
+        {"max_kg": 65, "clicks": 12},
+        {"max_kg": 85, "clicks": 8},
+        {"max_kg": 999, "clicks": 5}
+      ],
+      "base_lsc": 3,
+      "base_hsc": 0,
+      "note": "Jednostavniji Bomber damper."
+    },
+    "ohlins": {
+      "psi_multiplier": 1.2,
+      "rebound_table": [
+        {"max_kg": 70, "clicks": 12},
+        {"max_kg": 90, "clicks": 8},
+        {"max_kg": 999, "clicks": 5}
+      ],
+      "base_lsc": 4,
+      "base_hsc": 3,
+      "note": "RXF serija."
+    }
+  },
+  "shocks": {
+    "standard_air": {
+      "psi_multiplier": 2.2,
+      "rebound_table": [
+        {"max_kg": 65, "clicks": 10},
+        {"max_kg": 80, "clicks": 7},
+        {"max_kg": 95, "clicks": 5},
+        {"max_kg": 999, "clicks": 3}
+      ],
+      "base_lsc": 2,
+      "base_hsc": 0,
+      "note": "Generički Air Shock."
+    },
+    "fox": {
+      "psi_multiplier": 2.45,
+      "rebound_table": [
+        {"max_kg": 60, "clicks": 14},
+        {"max_kg": 75, "clicks": 10},
+        {"max_kg": 90, "clicks": 7},
+        {"max_kg": 105, "clicks": 5},
+        {"max_kg": 999, "clicks": 3}
+      ],
+      "base_lsc": 6,
+      "base_hsc": 3,
+      "note": "Fox Float X2."
+    },
+    "rockshox": {
+      "psi_multiplier": 2.15,
+      "rebound_table": [
+        {"max_kg": 65, "clicks": 8},
+        {"max_kg": 85, "clicks": 6},
+        {"max_kg": 999, "clicks": 4}
+      ],
+      "base_lsc": 2,
+      "base_hsc": 1,
+      "note": "RockShox SuperDeluxe."
+    }
+  },
+  "sag_targets": {
+    "hardtail": { "fork": 0.20, "shock": 0.0 },
+    "full_suspension_xc": { "fork": 0.20, "shock": 0.25 },
+    "full_suspension_trail_enduro": { "fork": 0.25, "shock": 0.30 },
+    "downhill": { "fork": 0.20, "shock": 0.35 }
+  }
+}

@@ -1,0 +1,250 @@
+[
+  {
+    "category": "stability",
+    "symptom_id": "brake_dive",
+    "symptom_name": "Viljuška previše tone pri kočenju (Brake Dive)",
+    "required_component": "fork",
+    "solutions": [
+      {
+        "priority": 1,
+        "logic_check": "has_lsc",
+        "action": {
+          "component": "fork",
+          "parameter": "lsc_clicks",
+          "change": "increase",
+          "amount": 3,
+          "unit": "clicks"
+        },
+        "explanation": "Zatvori LSC (Low Speed Compression). To stvara platformu koja drži viljušku visoko kad prebaciš težinu naprijed pri kočenju."
+      },
+      {
+        "priority": 2,
+        "logic_check": "has_air_spring",
+        "action": {
+          "component": "fork",
+          "parameter": "psi",
+          "change": "increase",
+          "amount": 5,
+          "unit": "psi"
+        },
+        "explanation": "Nemaš LSC točkić? Povećaj pritisak zraka da ojačaš oprugu. Malo ćeš izgubiti na udobnosti, ali ćeš dobiti stabilnost."
+      }
+    ]
+  },
+  {
+    "category": "cornering",
+    "symptom_id": "loss_of_traction_chatter",
+    "symptom_name": "Gubim trakciju, točak odskakuje u zavoju (Chatter)",
+    "required_component": "fork",
+    "solutions": [
+      {
+        "priority": 1,
+        "logic_check": "has_lsr",
+        "action": {
+          "component": "fork",
+          "parameter": "lsr_clicks",
+          "change": "decrease",
+          "amount": 2,
+          "unit": "clicks (faster)"
+        },
+        "explanation": "Točak se ne vraća na zemlju dovoljno brzo. Ubrzaj Low Speed Rebound (otvori ventil) da guma bolje prati teren."
+      },
+      {
+        "priority": 2,
+        "logic_check": "has_rebound",
+        "action": {
+          "component": "fork",
+          "parameter": "rebound_clicks",
+          "change": "decrease",
+          "amount": 2,
+          "unit": "clicks (faster)"
+        },
+        "explanation": "Ubrzaj Rebound (smanji gušenje) kako bi guma pratila konturu terena."
+      },
+      {
+        "priority": 3,
+        "logic_check": "has_lsc",
+        "action": {
+          "component": "fork",
+          "parameter": "lsc_clicks",
+          "change": "decrease",
+          "amount": 2,
+          "unit": "clicks"
+        },
+        "explanation": "Možda je kompresija previše tvrda. Otvori LSC da omekšaš početni udarac."
+      }
+    ]
+  },
+  {
+    "category": "big_hits",
+    "symptom_id": "bottom_out_harsh",
+    "symptom_name": "Često zabijanje do kraja hoda (Bottom Out)",
+    "required_component": "fork",
+    "solutions": [
+      {
+        "priority": 1,
+        "logic_check": "tokens_adjustable",
+        "action": {
+          "component": "fork",
+          "parameter": "tokens",
+          "change": "increase",
+          "amount": 1,
+          "unit": "count"
+        },
+        "explanation": "Dodaj Volume Spacer (Token). To čini viljušku progresivnom - mekana na početku, tvrda na kraju hoda."
+      },
+      {
+        "priority": 2,
+        "logic_check": "has_hsc",
+        "action": {
+          "component": "fork",
+          "parameter": "hsc_clicks",
+          "change": "increase",
+          "amount": 2,
+          "unit": "clicks"
+        },
+        "explanation": "Pojačaj High Speed Compression. To pomaže hidraulici da upije energiju velikih udaraca."
+      },
+      {
+        "priority": 3,
+        "logic_check": "always_true",
+        "action": {
+          "component": "fork",
+          "parameter": "psi",
+          "change": "increase",
+          "amount": 5,
+          "unit": "psi"
+        },
+        "explanation": "Povećaj pritisak zraka za bolju podršku kroz cijeli hod."
+      }
+    ]
+  },
+  {
+    "category": "jumps",
+    "symptom_id": "rear_bucking",
+    "symptom_name": "Zadnji kraj me katapultira na skoku (Bucking)",
+    "required_component": "shock",
+    "solutions": [
+      {
+        "priority": 1,
+        "logic_check": "has_hsr",
+        "action": {
+          "component": "shock",
+          "parameter": "hsr_clicks",
+          "change": "increase",
+          "amount": 2,
+          "unit": "clicks (slower)"
+        },
+        "explanation": "Zadnji amortizer se vraća prebrzo iz dubokog hoda (nakon kompresije na odrazu). Uspori High Speed Rebound (HSR)."
+      },
+      {
+        "priority": 2,
+        "logic_check": "has_rebound",
+        "action": {
+          "component": "shock",
+          "parameter": "rebound_clicks",
+          "change": "increase",
+          "amount": 2,
+          "unit": "clicks (slower)"
+        },
+        "explanation": "Uspori glavni Rebound točkić. Amortizer te baca preko volana jer se opruga prenaglo rasteže."
+      }
+    ]
+  },
+  {
+    "category": "rough_terrain",
+    "symptom_id": "packing_down",
+    "symptom_name": "Viljuška ostaje nisko na seriji rupa (Packing)",
+    "required_component": "fork",
+    "solutions": [
+      {
+        "priority": 1,
+        "logic_check": "has_hsr",
+        "action": {
+          "component": "fork",
+          "parameter": "hsr_clicks",
+          "change": "decrease",
+          "amount": 2,
+          "unit": "clicks (faster)"
+        },
+        "explanation": "Viljuška se ne stigne vratiti u puni hod prije idućeg udarca. Ubrzaj HSR da se brže oporavlja od dubokih udaraca."
+      },
+      {
+        "priority": 2,
+        "logic_check": "has_rebound",
+        "action": {
+          "component": "fork",
+          "parameter": "rebound_clicks",
+          "change": "decrease",
+          "amount": 3,
+          "unit": "clicks (faster)"
+        },
+        "explanation": "Tvoj Rebound je prespor. Otvori ventil (brže) kako bi viljuška bila spremna za idući udarac."
+      }
+    ]
+  },
+  {
+    "category": "feel",
+    "symptom_id": "harsh_spike",
+    "symptom_name": "Oštar udarac na korijenju (Spiking)",
+    "required_component": "fork",
+    "solutions": [
+      {
+        "priority": 1,
+        "logic_check": "has_hsc",
+        "action": {
+          "component": "fork",
+          "parameter": "hsc_clicks",
+          "change": "decrease",
+          "amount": 2,
+          "unit": "clicks (softer)"
+        },
+        "explanation": "Viljuška se 'guši' na brzim udarcima. Smanji High Speed Compression da ulje brže prolazi kroz ventile."
+      },
+      {
+        "priority": 2,
+        "logic_check": "has_air_spring",
+        "action": {
+          "component": "fork",
+          "parameter": "psi",
+          "change": "decrease",
+          "amount": 3,
+          "unit": "psi"
+        },
+        "explanation": "Smanji pritisak zraka. Možda je opruga previše kruta za tvoju težinu."
+      }
+    ]
+  },
+  {
+    "category": "feel",
+    "symptom_id": "dead_pop",
+    "symptom_name": "Bicikl je mrtav, teško se odraziti (No Pop)",
+    "required_component": "shock",
+    "solutions": [
+      {
+        "priority": 1,
+        "logic_check": "has_lsr",
+        "action": {
+          "component": "shock",
+          "parameter": "lsr_clicks",
+          "change": "decrease",
+          "amount": 2,
+          "unit": "clicks (faster)"
+        },
+        "explanation": "Rebound ti previše 'jede' energiju. Ubrzaj Low Speed Rebound da ti amortizer vrati malo energije pri odrazu."
+      },
+      {
+        "priority": 2,
+        "logic_check": "has_lsc",
+        "action": {
+          "component": "shock",
+          "parameter": "lsc_clicks",
+          "change": "increase",
+          "amount": 2,
+          "unit": "clicks (firmer)"
+        },
+        "explanation": "Amortizer ti propada kad pokušaš napumpati skok. Pojačaj LSC da dobiješ čvršću platformu za odraz."
+      }
+    ]
+  }
+]
