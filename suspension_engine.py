@@ -1,11 +1,14 @@
 import json
+import os
 from typing import Optional, Literal, List, Dict, Any
 from pydantic import BaseModel, Field, field_validator
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import google.generativeai as genai
 
-app = FastAPI(title="MTB Evolution API", version="2.0 - Smart Context")
+app = FastAPI(title="MTB Evolution API", version="2.1 - Gemini AI")
 
+# --- CORS POSTAVKE (Dozvoljava pristup sa bilo koje domene) ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,7 +17,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- 1. MODELI ---
+# --- GEMINI AI SETUP ---
+# Čita API ključ iz Environment varijabli na Renderu
+GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
+if GEMINI_KEY:
+    genai.configure(api_key=GEMINI_KEY)
+else:
+    print("UPOZORENJE: GEMINI_API_KEY nije pronađen! AI funkcije neće raditi.")
+
+# --- 1. MODELI PODATAKA ---
+
 class RidingConditions(BaseModel):
     terrain: Literal['flow', 'jumps', 'technical_roots', 'mix'] = 'mix'
     weather: Literal['dry', 'wet', 'mix'] = 'dry'
@@ -24,7 +36,7 @@ class SuspensionComponent(BaseModel):
     travel_mm: int = Field(..., gt=35, le=250)
     has_air_spring: bool = True
     
-    # Detaljne opcije
+    # Detaljne opcije podešavanja
     has_rebound: bool = True
     has_lsc: bool = False
     has_hsc: bool = False
@@ -51,22 +63,30 @@ class BikeSetup(BaseModel):
             raise ValueError("Hardtail ne može imati zadnji shock.")
         return v
 
-# --- 2. LOGIKA ---
+# Model za AI upit
+class AIQuestion(BaseModel):
+    bike_setup: BikeSetup
+    user_question: str
+
+# --- 2. LOGIKA PRORAČUNA (ENGINE) ---
+
 class SuspensionCalculator:
     def __init__(self, specs_file='manufacturer_specs.json'):
         try:
             with open(specs_file, 'r', encoding='utf-8') as f:
                 self.specs = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
-            print("Greška pri učitavanju specifikacija.")
+            print(f"Greška: Fajl '{specs_file}' nije pronađen ili je neispravan.")
             self.specs = {}
 
     def _get_dynamic_rebound(self, component_data: dict, weight: float) -> int:
+        """Računa klikove rebounda na osnovu težine (Više kg = Sporiji rebound/Manje klikova)."""
         table = component_data.get('rebound_table', [])
-        if not table: return 6
+        if not table: return 6 # Default ako nema tabele
+        
         for entry in table:
             if weight <= entry['max_kg']: return entry['clicks']
-        return table[-1]['clicks']
+        return table[-1]['clicks'] # Za najteže vozače
 
     def calculate_baseline(self, setup: BikeSetup):
         rider_weight = setup.rider.weight_kg
@@ -74,17 +94,18 @@ class SuspensionCalculator:
         conditions = setup.conditions
         recommendations = {}
 
+        # Modifikatori za Teren i Vrijeme
         modifiers = {
             "terrain": {
-                "flow": {"lsc": 1, "rebound": 0, "psi_pct": 1.0, "tip": "Flow staza traži podršku."},
-                "jumps": {"lsc": 2, "hsc": 1, "rebound": 1, "psi_pct": 1.05, "tip": "Skokovi traže stabilnost i sporiji rebound."},
-                "technical_roots": {"lsc": -1, "rebound": -1, "psi_pct": 0.98, "tip": "Korijenje traži mekoću i brz rebound."},
-                "mix": {"lsc": 0, "rebound": 0, "psi_pct": 1.0, "tip": "Balansirano."}
+                "flow": {"lsc": 1, "rebound": 0, "psi_pct": 1.0, "tip": "Flow staza traži podršku za 'pumpanje' kroz zavoje."},
+                "jumps": {"lsc": 2, "hsc": 1, "rebound": 1, "psi_pct": 1.05, "tip": "Za skokove smo usporili rebound (stabilnost) i pojačali kompresiju."},
+                "technical_roots": {"lsc": -1, "rebound": -1, "psi_pct": 0.98, "tip": "Tehnički teren traži mekoću. Otvorili smo kompresiju."},
+                "mix": {"lsc": 0, "rebound": 0, "psi_pct": 1.0, "tip": "Balansirana postavka za sve uvjete."}
             },
             "weather": {
                 "dry": {"lsc": 0, "rebound": 0, "psi_pct": 1.0, "tip": ""},
-                "wet": {"lsc": -2, "rebound": -1, "psi_pct": 0.95, "tip": "Mokro je! Mekša kompresija za grip."},
-                "mix": {"lsc": -1, "rebound": 0, "psi_pct": 0.98, "tip": "Promjenjivo."}
+                "wet": {"lsc": -2, "rebound": -1, "psi_pct": 0.95, "tip": "Mokro je! Smanjen pritisak i mekša kompresija za trakciju."},
+                "mix": {"lsc": -1, "rebound": 0, "psi_pct": 0.98, "tip": "Promjenjivi uvjeti traže oprezan setup."}
             }
         }
 
@@ -92,26 +113,32 @@ class SuspensionCalculator:
         w_mod = modifiers["weather"][conditions.weather]
 
         def get_component_settings(comp: SuspensionComponent, comp_type: str):
+            # Dohvati podatke o brendu
             specs_section = self.specs.get(comp_type + 's', {})
             brand_data = specs_section.get(comp.brand, {})
+            # Fallback ako brend ne postoji
             if not brand_data:
                 fallback_key = 'rockshox' if comp_type == 'fork' else 'standard_air'
                 brand_data = specs_section.get(fallback_key, {})
 
+            # 1. PSI
             psi_mult = brand_data.get('psi_multiplier', 1.0)
             base_psi = int(rider_weight * psi_mult)
             final_psi = int(base_psi * t_mod.get('psi_pct', 1.0) * w_mod.get('psi_pct', 1.0))
 
+            # 2. SAG
             sag_pct = self.specs.get('sag_targets', {}).get(bike_type, {}).get(comp_type, 0.25)
             sag_mm = int(comp.travel_mm * sag_pct)
 
+            # 3. Klikovi (Base + Modifiers)
             base_rebound = self._get_dynamic_rebound(brand_data, rider_weight)
             base_lsc = brand_data.get('base_lsc', 2)
             base_hsc = brand_data.get('base_hsc', 1)
 
+            # Primjena modifikatora (ne idi ispod 0)
             final_rebound = max(0, base_rebound + t_mod.get('rebound', 0) + w_mod.get('rebound', 0))
             final_lsr = final_rebound
-            final_hsr = max(0, final_rebound + 1)
+            final_hsr = max(0, final_rebound + 1) # HSR mrvicu brži/otvoreniji radi sigurnosti
 
             final_lsc = max(0, base_lsc + t_mod.get('lsc', 0) + w_mod.get('lsc', 0))
             final_hsc = max(0, base_hsc + t_mod.get('hsc', 0) + w_mod.get('hsc', 0))
@@ -138,6 +165,7 @@ class SuspensionCalculator:
         return recommendations
 
 # --- 3. DIJAGNOSTIKA ---
+
 class DiagnosticAssistant:
     def __init__(self, logic_file='suspension_logic.json'):
         try:
@@ -152,11 +180,13 @@ class DiagnosticAssistant:
 
         comp_name = problem['required_component']
         actual_comp = setup.fork if comp_name == 'fork' else setup.shock
-        if not actual_comp: return {"error": "Komponenta ne postoji na biciklu."}
+        
+        if not actual_comp: return {"error": "Ovaj problem se odnosi na komponentu koju nemaš."}
 
         valid_solutions = []
         for solution in problem['solutions']:
             check = solution['logic_check']
+            # Provjeri da li komponenta ima tu funkciju (npr. LSC točkić)
             if check == "always_true" or getattr(actual_comp, check, False):
                 valid_solutions.append(solution)
 
@@ -169,7 +199,8 @@ class DiagnosticAssistant:
             "secondary_fix": valid_solutions[1] if len(valid_solutions) > 1 else None
         }
 
-# --- 4. API ---
+# --- 4. API ENDPOINTS ---
+
 @app.post("/api/calculate-setup")
 async def get_baseline_setup(bike: BikeSetup):
     return SuspensionCalculator().calculate_baseline(bike)
@@ -177,6 +208,39 @@ async def get_baseline_setup(bike: BikeSetup):
 @app.post("/api/diagnose")
 async def diagnose_issue(bike: BikeSetup, symptom_id: str):
     return DiagnosticAssistant().diagnose_problem(bike, symptom_id)
+
+@app.post("/api/ai-mechanic")
+async def ask_ai_mechanic(data: AIQuestion):
+    """Šalje upit Geminiju sa kontekstom bicikla."""
+    
+    if not GEMINI_KEY:
+        raise HTTPException(status_code=503, detail="AI servis nije konfigurisan (Fali API Key).")
+
+    try:
+        # Koristimo noviji model (gemini-1.5-flash ili 2.0 ako je dostupan, 1.5 je sigurniji za sada)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        context = f"""
+        Ti si 'VeloCode Architect', vrhunski MTB mehaničar i inženjer suspenzije.
+        Odgovaraj na BOSANSKOM jeziku. Budi kratak, stručan i direktan.
+        
+        PODACI O BICIKLU:
+        - Težina vozača: {data.bike_setup.rider.weight_kg} kg
+        - Bicikl: {data.bike_setup.rider.bike_type}
+        - Uvjeti: {data.bike_setup.conditions.terrain} / {data.bike_setup.conditions.weather}
+        - Viljuška: {data.bike_setup.fork.brand} ({data.bike_setup.fork.travel_mm}mm)
+        
+        PITANJE KORISNIKA: {data.user_question}
+        
+        Daj konkretan savjet za podešavanje ili tehniku vožnje.
+        """
+        
+        response = model.generate_content(context)
+        return {"answer": response.text}
+        
+    except Exception as e:
+        print(f"AI Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AI Greška: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
