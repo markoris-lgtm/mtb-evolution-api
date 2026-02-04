@@ -25,6 +25,17 @@ if GEMINI_KEY:
 else:
     print("UPOZORENJE: GEMINI_API_KEY nije pronađen! AI funkcije neće raditi.")
 
+# --- HEALTH CHECK ENDPOINT (NOVO) ---
+# Ovo nam služi da provjerimo da li je nova verzija koda aktivna na serveru
+@app.get("/")
+def read_root():
+    return {
+        "status": "MTB Evolution API is Live", 
+        "version": "2.1", 
+        "ai_enabled": bool(GEMINI_KEY),
+        "docs_url": "/docs"
+    }
+
 # --- 1. MODELI PODATAKA ---
 
 class RidingConditions(BaseModel):
