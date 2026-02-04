@@ -228,7 +228,7 @@ async def ask_ai_mechanic(data: AIQuestion):
         raise HTTPException(status_code=503, detail="AI servis nije konfigurisan (Fali API Key).")
 
     try:
-        # Prebacujemo na 'gemini-pro' koji je najstabilniji i sigurno dostupan
+        # Prebacujemo na 'gemini-pro' koji je najstabilniji i sigurno dostupan na svim verzijama
         model = genai.GenerativeModel('gemini-pro')
         
         context = f"""
