@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
 
-app = FastAPI(title="MTB Evolution API", version="2.3 - Debug Mode")
+app = FastAPI(title="MTB Evolution API", version="2.4 - Gemini 2.5 Flash")
 
 # --- CORS POSTAVKE ---
 app.add_middleware(
@@ -22,28 +22,15 @@ GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_KEY:
     genai.configure(api_key=GEMINI_KEY)
 
-# --- HEALTH CHECK & MODEL DEBUGGING ---
+# --- HEALTH CHECK ENDPOINT ---
 @app.get("/")
 def read_root():
-    """Provjerava status servera i LISTA DOSTUPNE MODELE."""
-    available_models = []
-    ai_status = "Disabled (No Key)"
-    
-    if GEMINI_KEY:
-        try:
-            # Pokušaj izlistati modele koje ovaj API ključ vidi
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    available_models.append(m.name)
-            ai_status = "Active"
-        except Exception as e:
-            ai_status = f"API Key Error: {str(e)}"
-
+    """Provjerava status servera."""
     return {
         "status": "MTB Evolution API is Live", 
-        "version": "2.3", 
-        "ai_status": ai_status,
-        "available_models": available_models, # OVO JE KLJUČNO ZA DEBUGIRANJE
+        "version": "2.4", 
+        "ai_enabled": bool(GEMINI_KEY),
+        "ai_model": "gemini-2.5-flash",
         "docs_url": "/docs"
     }
 
@@ -217,22 +204,22 @@ async def ask_ai_mechanic(data: AIQuestion):
         raise HTTPException(status_code=503, detail="AI servis nije konfigurisan.")
 
     try:
-        # Koristimo standardni 'gemini-1.5-flash'
-        # Ako ovo pukne, vidjet ćeš dostupne modele na početnoj stranici
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # AŽURIRANO: Koristimo gemini-2.5-flash jer ga tvoj ključ podržava!
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         context = f"""
-        Ti si 'VeloCode Architect', vrhunski MTB mehaničar. Odgovaraj na BOSANSKOM.
+        Ti si 'VeloCode Architect', vrhunski MTB mehaničar i inženjer suspenzije.
+        Odgovaraj na BOSANSKOM jeziku. Budi kratak, stručan i direktan.
         
-        PODACI:
-        - Težina: {data.bike_setup.rider.weight_kg} kg
+        PODACI O BICIKLU:
+        - Težina vozača: {data.bike_setup.rider.weight_kg} kg
         - Bicikl: {data.bike_setup.rider.bike_type}
         - Teren: {data.bike_setup.conditions.terrain}, Vrijeme: {data.bike_setup.conditions.weather}
         - Viljuška: {data.bike_setup.fork.brand} ({data.bike_setup.fork.travel_mm}mm)
         
-        PITANJE: {data.user_question}
+        PITANJE KORISNIKA: {data.user_question}
         
-        Daj kratak, stručan savjet.
+        Daj konkretan savjet za podešavanje ili tehniku vožnje.
         """
         
         response = model.generate_content(context)
