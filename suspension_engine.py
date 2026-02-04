@@ -228,8 +228,8 @@ async def ask_ai_mechanic(data: AIQuestion):
         raise HTTPException(status_code=503, detail="AI servis nije konfigurisan (Fali API Key).")
 
     try:
-        # Koristimo noviji model (gemini-1.5-flash ili 2.0 ako je dostupan, 1.5 je sigurniji za sada)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Prebacujemo na 'gemini-pro' koji je najstabilniji i sigurno dostupan
+        model = genai.GenerativeModel('gemini-pro')
         
         context = f"""
         Ti si 'VeloCode Architect', vrhunski MTB mehaničar i inženjer suspenzije.
