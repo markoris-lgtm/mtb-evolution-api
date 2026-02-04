@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
 
-app = FastAPI(title="MTB Evolution API", version="2.1 - Gemini AI")
+app = FastAPI(title="MTB Evolution API", version="2.2 - Gemini AI Fixed")
 
 # --- CORS POSTAVKE (Dozvoljava pristup sa bilo koje domene) ---
 app.add_middleware(
@@ -25,13 +25,12 @@ if GEMINI_KEY:
 else:
     print("UPOZORENJE: GEMINI_API_KEY nije pronađen! AI funkcije neće raditi.")
 
-# --- HEALTH CHECK ENDPOINT (NOVO) ---
-# Ovo nam služi da provjerimo da li je nova verzija koda aktivna na serveru
+# --- HEALTH CHECK ENDPOINT ---
 @app.get("/")
 def read_root():
     return {
         "status": "MTB Evolution API is Live", 
-        "version": "2.1", 
+        "version": "2.2", 
         "ai_enabled": bool(GEMINI_KEY),
         "docs_url": "/docs"
     }
@@ -228,8 +227,8 @@ async def ask_ai_mechanic(data: AIQuestion):
         raise HTTPException(status_code=503, detail="AI servis nije konfigurisan (Fali API Key).")
 
     try:
-        # Prebacujemo na 'gemini-pro' koji je najstabilniji i sigurno dostupan na svim verzijama
-        model = genai.GenerativeModel('gemini-pro')
+        # Koristimo gemini-1.5-flash sa NOVOM bibliotekom (requirements.txt >= 0.8.3)
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         context = f"""
         Ti si 'VeloCode Architect', vrhunski MTB mehaničar i inženjer suspenzije.
@@ -251,6 +250,7 @@ async def ask_ai_mechanic(data: AIQuestion):
         
     except Exception as e:
         print(f"AI Error: {str(e)}")
+        # Ispisujemo detaljniju grešku za lakše debugiranje
         raise HTTPException(status_code=500, detail=f"AI Greška: {str(e)}")
 
 if __name__ == "__main__":
