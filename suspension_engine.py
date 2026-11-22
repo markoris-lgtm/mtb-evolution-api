@@ -1,12 +1,14 @@
 import json
 import os
+import time
+from collections import defaultdict, deque
 from typing import Optional, Literal, List, Dict, Any
 from pydantic import BaseModel, Field, field_validator
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
 
-app = FastAPI(title="MTB Evolution API", version="2.4 - Gemini 2.5 Flash")
+app = FastAPI(title="MTB Evolution API", version="2.5 - Gemini 2.5 Flash")
 
 # --- CORS POSTAVKE ---
 app.add_middleware(
@@ -22,13 +24,60 @@ GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_KEY:
     genai.configure(api_key=GEMINI_KEY)
 
+# --- LIMIT AI UPITA (po IP adresi, u memoriji servera) ---
+# Stiti Gemini kvotu: limit u pregledniku (3 upita) se zaobilazi osvjezavanjem stranice.
+# Brojaci se resetuju kad se server restartuje ili uspava, sto je za ovu namjenu dovoljno.
+AI_WINDOW_SEC = 600        # prozor od 10 minuta
+AI_MAX_PER_WINDOW = 5      # najvise 5 upita po IP adresi u 10 minuta
+AI_MAX_PER_DAY = 20        # najvise 20 upita po IP adresi dnevno
+AI_GLOBAL_PER_DAY = 300    # najvise 300 upita dnevno ukupno (svi korisnici)
+_DAY_SEC = 86400
+_ai_hits = defaultdict(deque)
+_ai_global = deque()
+
+
+def _client_ip(request: Request) -> str:
+    """IP posjetioca; Render je iza proxyja pa se cita iz zaglavlja."""
+    for header in ("cf-connecting-ip", "true-client-ip"):
+        value = request.headers.get(header)
+        if value:
+            return value.strip()
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _ai_rate_check(ip: str, now: Optional[float] = None) -> Optional[str]:
+    """Vraca None ako je upit dozvoljen, inace poruku za korisnika."""
+    now = time.time() if now is None else now
+    while _ai_global and now - _ai_global[0] > _DAY_SEC:
+        _ai_global.popleft()
+    if len(_ai_hits) > 5000:
+        for key in [k for k, q in _ai_hits.items() if not q or now - q[-1] > _DAY_SEC]:
+            del _ai_hits[key]
+    hits = _ai_hits[ip]
+    while hits and now - hits[0] > _DAY_SEC:
+        hits.popleft()
+    if len(_ai_global) >= AI_GLOBAL_PER_DAY:
+        return "AI mehaničar je dostigao dnevni limit upita. Pokušajte sutra."
+    if len(hits) >= AI_MAX_PER_DAY:
+        return "Dostigli ste dnevni limit AI upita. Pokušajte sutra."
+    recent = sum(1 for t in hits if now - t <= AI_WINDOW_SEC)
+    if recent >= AI_MAX_PER_WINDOW:
+        return "Previše AI upita u kratkom vremenu. Sačekajte desetak minuta."
+    hits.append(now)
+    _ai_global.append(now)
+    return None
+
+
 # --- HEALTH CHECK ENDPOINT ---
 @app.get("/")
 def read_root():
     """Provjerava status servera."""
     return {
-        "status": "MTB Evolution API is Live", 
-        "version": "2.4", 
+        "status": "MTB Evolution API is Live",
+        "version": "2.5",
         "ai_enabled": bool(GEMINI_KEY),
         "ai_model": "gemini-2.5-flash",
         "docs_url": "/docs"
@@ -70,7 +119,7 @@ class BikeSetup(BaseModel):
 
 class AIQuestion(BaseModel):
     bike_setup: BikeSetup
-    user_question: str
+    user_question: str = Field(..., min_length=1, max_length=600)
 
 # --- 2. LOGIKA PRORAČUNA ---
 class SuspensionCalculator:
@@ -154,7 +203,7 @@ class SuspensionCalculator:
         recommendations['fork'] = get_component_settings(setup.fork, 'fork')
         if setup.shock:
             recommendations['shock'] = get_component_settings(setup.shock, 'shock')
-        
+
         return recommendations
 
 # --- 3. DIJAGNOSTIKA ---
@@ -199,32 +248,36 @@ async def diagnose_issue(bike: BikeSetup, symptom_id: str):
     return DiagnosticAssistant().diagnose_problem(bike, symptom_id)
 
 @app.post("/api/ai-mechanic")
-async def ask_ai_mechanic(data: AIQuestion):
+async def ask_ai_mechanic(data: AIQuestion, request: Request):
     if not GEMINI_KEY:
         raise HTTPException(status_code=503, detail="AI servis nije konfigurisan.")
+
+    limit_msg = _ai_rate_check(_client_ip(request))
+    if limit_msg:
+        raise HTTPException(status_code=429, detail=limit_msg)
 
     try:
         # AŽURIRANO: Koristimo gemini-2.5-flash jer ga tvoj ključ podržava!
         model = genai.GenerativeModel('gemini-2.5-flash')
-        
+
         context = f"""
         Ti si 'VeloCode Architect', vrhunski MTB mehaničar i inženjer suspenzije.
         Odgovaraj na BOSANSKOM jeziku. Budi kratak, stručan i direktan.
-        
+
         PODACI O BICIKLU:
         - Težina vozača: {data.bike_setup.rider.weight_kg} kg
         - Bicikl: {data.bike_setup.rider.bike_type}
         - Teren: {data.bike_setup.conditions.terrain}, Vrijeme: {data.bike_setup.conditions.weather}
         - Viljuška: {data.bike_setup.fork.brand} ({data.bike_setup.fork.travel_mm}mm)
-        
+
         PITANJE KORISNIKA: {data.user_question}
-        
+
         Daj konkretan savjet za podešavanje ili tehniku vožnje.
         """
-        
+
         response = model.generate_content(context)
         return {"answer": response.text}
-        
+
     except Exception as e:
         print(f"AI Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"AI Greška: {str(e)}")
